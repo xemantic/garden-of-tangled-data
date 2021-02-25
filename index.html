@@ -110,16 +110,42 @@ this.j);b.framebufferTexture2D(b.FRAMEBUFFER,b.COLOR_ATTACHMENT0,b.TEXTURE_2D,th
 
     const float FADE_RATE = .99;
 
+    const float PIXEL_THRESHOLD = .2;
+
+    float random1(float x) {
+      return fract(sin(x) * 100000.0);
+    }
+
+    vec3 getPixel(vec2 uv, int x, int y) {
+      vec2 pixelShift = vec2(1) / iResolution;
+      return texture2D(iChannel0, uv - vec2(x, y) * pixelShift).rgb;
+    }
+
     void main() {
       vec2 uv = gl_FragCoord.xy / iResolution;
-      vec3 prevColor = texture2D(iChannel0, uv).rgb;
       vec3 color = vec3(0);
       if (iCopySeed) {
-        color += texture2D(iChannel1, uv).rgb;
+        color += texture2D(iChannel1, vec2(uv.x, 1. - uv.y)).rgb;
       } else {
-        //vec2 pixelToTheLeftUv = gl_FragCoord.xy - vec2(-1, 0) / iResolution;
-        vec3 newPixel = texture2D(iChannel0, uv - prevColor.rg * .001).rgb;
-        color = newPixel;
+        vec3 prevPixel =  getPixel(uv, 0, 0);
+        vec3 pixelBelow = getPixel(uv, 0, 1);
+        vec3 pixelLeft =  getPixel(uv, 1, 1);
+        vec3 pixelRight = getPixel(uv, -1, 1);
+        vec3 pixels[3];
+        pixels[0] = pixelBelow;
+        pixels[1] = pixelLeft;
+        pixels[2] = pixelRight;
+        if (prevPixel.r < PIXEL_THRESHOLD) {
+          color = prevPixel;
+        } else {
+          vec3 brightestColor = vec3(0);
+          for (int i = 0; i < 3; i++) {
+            if (pixels[i].r > brightestColor.r) {
+              brightestColor = pixels[i];
+            }
+          }
+          color = brightestColor;
+        }
       }
       gl_FragColor = vec4(color, 1.);
     }
